@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Appolo Medi Lab - Professional Laboratory Information System (v2.0)">
+  <title>Appolo Medi Lab — LIMS</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Window Title Bar -->
+    <header class="window-title-bar">
+      <div class="window-title">
+        <span style="font-size:14px;">🔬</span>
+        <span>Appolo Medi Lab — Laboratory Information System [v2.0.5]</span>
+      </div>
+      <div class="window-controls">
+        <div class="win-btn" title="Minimize"></div>
+        <div class="win-btn" title="Maximize"></div>
+        <div class="win-btn win-btn-close" title="Close"></div>
+      </div>
+    </header>
+
+    <div class="app-container">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand-box">
+          <h1>Appolo Medi Lab</h1>
+          <p>Eravur · PHSRC Certified</p>
+        </div>
+        <nav class="nav-group">
+          <a href="#/" class="nav-item active" data-route="#/">
+            <span class="nav-icon"></span> Dashboard
+          </a>
+          <a href="#/patients" class="nav-item" data-route="#/patients">
+            <span class="nav-icon"></span> Patients
+          </a>
+          <a href="#/doctors" class="nav-item" data-route="#/doctors">
+            <span class="nav-icon"></span> Doctors
+          </a>
+          <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 8px 16px;"></div>
+          <a href="#/reports" class="nav-item" data-route="#/reports">
+            <span class="nav-icon"></span> Reports
+          </a>
+          <a href="#/settings" class="nav-item" data-route="#/settings">
+            <span class="nav-icon"></span> Settings
+          </a>
+        </nav>
+        <div style="padding: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
+          <a href="https://wa.me/94764827277" target="_blank" class="btn btn-whatsapp" style="width: 100%; justify-content: center; border-radius: 12px;">
+            Support Hotline
+          </a>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <header class="content-header">
+          <div class="search-box">
+            <span></span>
+            <input type="text" id="globalSearch" placeholder="Search Patients (Alt+S)..." autocomplete="off">
+            <div id="globalResults" class="global-results-popup"></div>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <button class="btn btn-sm" id="themeToggle">🌙 Dark Mode</button>
+            <div style="display: flex; align-items: center; gap: 10px; padding-left: 12px; border-left: 1px solid var(--border);">
+              <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700;">A</div>
+              <div style="font-size: 13px; font-weight: 600;">Administrator</div>
+            </div>
+          </div>
+        </header>
+        <div class="content-body" id="mainContent">
+          <!-- Content loaded here -->
+        </div>
+      </main>
+    </div>
+
+    <footer class="status-bar">
+      <div style="display: flex; gap: 16px; align-items: center;">
+        <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 8px; height: 8px; background: var(--success); border-radius: 50%;"></span> SYSTEM READY</span>
+        <span>|</span>
+        <span id="dateTimeStatus"></span>
+      </div>
+      <div>Appolo Medi Lab v2.0.5 [ENCRYPTED LOCAL STORAGE]</div>
+    </footer>
+  </div>
+
+  <script src="schema.js"></script>
+  <script src="storage.js"></script>
+  <script src="utils.js"></script>
+  <script src="router.js"></script>
+  <script src="ui.js"></script>
+  <script src="forms.js"></script>
+  <script src="reports.js"></script>
+  <script src="app.js"></script>
+  
+  <script>
+    function updateClock() {
+      const now = new Date();
+      const el = document.getElementById('dateTimeStatus');
+      if (el) el.textContent = now.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+  </script>
+</body>
+</html>

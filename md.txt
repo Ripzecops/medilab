@@ -1,0 +1,578 @@
+# FBS_LP.accdb — Reverse Engineering Report
+
+> **App:** Apollo Labs (Medical Laboratory Information System)  
+> **Engine:** Microsoft Access / ACE (Standard ACE DB)  
+> **File size:** 27.2 MB  
+> **Extraction method:** Binary UTF-16-LE string extraction + SQL query parsing (mdbtools unavailable in sandbox)
+
+---
+
+## 1. DATABASE OVERVIEW
+
+| Table | Purpose |
+|-------|---------|
+| **Patients** | Master patient registry — core entity |
+| **Doctors** | Referring doctor lookup |
+| **FBST** | Fasting Blood Sugar - single reading |
+| **FBSPPBS** | FBS + Post-Prandial Blood Sugar combo |
+| **FBSTT** | FBS + Triglyceride combo |
+| **FBSCT** | FBS + Total Cholesterol combo |
+| **FBSSGPTT** | FBS + SGPT (ALT) combo |
+| **RBST** | Random Blood Sugar readings |
+| **PPBST** | Post-Prandial Blood Sugar |
+| **OGTTT** | Oral Glucose Tolerance Test |
+| **HBA1CT** | HbA1c (Glycated Haemoglobin) |
+| **BSS1HT** | Blood Sugar Series 1hr (FBS+3 meal readings) |
+| **BSS1H2T** | Blood Sugar Series 1hr (3 meal readings only) |
+| **BSS2HT** | Blood Sugar Series 2hr (FBS+3 meal readings) |
+| **LPT** | Lipid Profile Test |
+| **TCT** | Total Cholesterol |
+| **FBCT** | Full Blood Count (CBC) |
+| **WBCDCPLTT** | WBC Differential + Platelet Count |
+| **HBT** | Haemoglobin Test |
+| **ESRT** | ESR (Erythrocyte Sedimentation Rate) |
+| **BGT** | Blood Group Test |
+| **BGWHT** | Blood Group + Weight + Height |
+| **CRPT** | C-Reactive Protein |
+| **SST** | SGOT + SGPT (Liver enzymes combo) |
+| **SGOTT** | SGOT (AST) only |
+| **SGPTT** | SGPT (ALT) only |
+| **CSGPTT** | Serum Creatinine + SGPT + eGFR |
+| **CT** | Serum Creatinine + eGFR |
+| **CTT** | Serum Creatinine + Triglyceride + eGFR |
+| **CHT** | Serum Creatinine + Haemoglobin + eGFR |
+| **UCT** | Urea + Creatinine + eGFR (Renal Function) |
+| **UCCRPT** | Urea + Creatinine + CRP combo |
+| **UT** | Blood Urea only |
+| **RFT** | Renal Function Test (RF marker) |
+| **UFRT** | Urine Full Report (macroscopic + microscopic) |
+| **UFRV** | Lookup values for UFRT dropdowns |
+| **SFAT** | Semen/Fertility Analysis |
+| **DABT** | Dengue Antibody Test (IgG + IgM) |
+| **DNS1AT** | Dengue NS-1 Antigen |
+| **VDRL** | VDRL (Syphilis serology) |
+| **UrineHCG** | Urine HCG (pregnancy test) |
+| **B-HCG** | Serum Beta-HCG (quantitative) |
+| **HBT** | Haemoglobin test |
+| **TriT** | Triglyceride test |
+| **FBSPPBS** | FBS + PPBS combo |
+| **About** | Software info/about table |
+
+> **Row counts:** Not determinable without mdbtools/ODBC. Binary parse shows PatientIDs ranging up to ~9,800+, suggesting thousands of records.
+
+---
+
+## 2. TABLE STRUCTURES
+
+### Patients (master)
+| Column | Type | Notes |
+|--------|------|-------|
+| PatientID | AutoNumber/Long | PK |
+| Patient Prefix | Text | Dropdown: Mr./Miss./Mrs./Master./Baby./Dr./Hon./Rev. |
+| Patient Name | Text | Required |
+| Age | Number | Used in eGFR calc |
+| Gender | Text | "Male"/"Female" |
+| Phone Number | Text | |
+| Referred By | Number/FK | → Doctors.ID |
+| Type of Ag | Text | (Blood type antigen?) |
+
+### Doctors
+| Column | Type | Notes |
+|--------|------|-------|
+| ID | AutoNumber | PK |
+| Doctor Name | Text | Required, sorted DESC in queries |
+
+### Standard Test Table Pattern
+All test tables share this base structure:
+
+| Column | Type | Notes |
+|--------|------|-------|
+| ReportID | AutoNumber | PK |
+| PatientID | Long | FK → Patients.PatientID |
+| Test Date | Date/Time | |
+| [Test-specific fields] | Number/Text | See below |
+
+### Test-Specific Fields
+
+**FBST** (Fasting Blood Sugar)
+- `Fasting Blood Sugar` — Number
+
+**RBST** (Random Blood Sugar)
+- `Random Blood Sugar` — Number
+
+**PPBST**
+- `PPBS` — Number
+
+**FBSPPBS**
+- `Fasting Blood Sugar`, `PPBS` — Number × 2
+
+**FBSTT**
+- `Fasting Blood Sugar`, `Triglyceride` — Number × 2
+
+**FBSCT**
+- `Fasting Blood Sugar`, `Total Cholrestrol` [sic] — Number × 2
+
+**FBSSGPTT**
+- `Fasting Blood Sugar`, `S G P T (ALT)` — Number × 2
+
+**OGTTT**
+- `Fasting Blood Sugar`, `OGTT`, `OGTT 2` — Number × 3
+
+**HBA1CT**
+- `HbA1C` — Number
+
+**BSS1HT**
+- `Fasting Blood Sugar`, `1 hr After Breakfast`, `1 hr After Lunch`, `1 hr After Dinner` — Number × 4
+
+**BSS1H2T**
+- `1 hr After Breakfast`, `1 hr After Lunch`, `1 hr After Dinner` — Number × 3
+
+**BSS2HT**
+- `Fasting Blood Sugar`, `2 hr After Breakfast`, `2 hr After Lunch`, `2 hr After Dinner` — Number × 4
+
+**LPT** (Lipid Profile)
+- `Total Cholesterol`, `HDL Cholesterol`, `LDL Cholesterol`, `Total Triglyceride`, `VLDL Cholesterol` — Number × 5
+
+**TCT**
+- `Total Cholrestrol` [sic] — Number
+
+**FBCT** (Full Blood Count)
+- `WBC`, `Neutrophils`, `Lymphocytes`, `Eosinophils`, `Monocytes`, `RBC`, `HGB`, `HCT`, `MCV`, `MCH`, `MCHC`, `PLATELETS`, `MPV`, `PDW`, `RDW` — Number × 15
+
+**WBCDCPLTT** (WBC Differential)
+- `WBC`, `Neutrophils`, `Lymphocytes`, `Eosinophils`, `Monocytes`, `Basophils`, `Plateletes Count` [sic] — Number × 7
+
+**HBT**
+- `Haemoglobin (Hb)` — Number
+
+**ESRT**
+- `ESR` — Number
+
+**BGT**
+- `Blood Group`, `Rhesus` — Text × 2
+
+**BGWHT**
+- `Blood Group`, `Rhesus`, `Height`, `Weight` — Mixed
+
+**CRPT**
+- `CRP`, `CRP Sign` — Number + Text (sign indicator)
+
+**SST**
+- `S G O T (AST)`, `S G P T (ALT)` — Number × 2
+
+**SGOTT**
+- `S G O T (AST)` — Number
+
+**SGPTT**
+- `S G P T (ALT)` — Number
+
+**CT**
+- `Serum Creatinine`, `eGFR` (calculated) — Number × 2
+
+**CTT**
+- `Serum Creatinine`, `Serum Triglyceride`, `eGFR` — Number × 3
+
+**CHT**
+- `Serum Creatinine`, `Haemoglobin (Hb)`, `eGFR` — Number × 3
+
+**UCT**
+- `Blood Urea`, `Serum Creatinine`, `eGFR` — Number × 3
+
+**UCCRPT**
+- `Blood Urea`, `Serum Creatinine`, `C-Reactive Protien(CRP)` [sic] — Number × 3
+
+**UT**
+- `Blood Urea` — Number
+
+**RFT**
+- `RF` (Rheumatoid Factor) — Number/Text
+
+**CSGPTT**
+- `Serum Creatinine`, `S G P T (ALT)`, `eGFR` — Number × 3
+
+**UFRT** (Urine Full Report)
+- `Colour`, `Apperance` [sic], `Sugar`, `Protein`, `RBC`, `PUS`, `Epithelial Cell`, `Crystals`, `Cast`, `Organisms` — Text (dropdown via UFRV)
+
+**UFRV** (Lookup)
+- `ID` — PK, `Values` — Text (dropdown options for UFRT)
+
+**SFAT** (Semen Analysis)
+- `Appearance`, `Liquefaction Time`, `Viscosity`, `Volume`, `pH` (inferred), `Concentration`, `Activity`, `Sluggishly`, `Immotility`, `PUS Cells`, `Red Cells` — Mixed
+
+**DABT** (Dengue Antibody)
+- `Ig- G`, `Ig- M` — Number/Text
+
+**DNS1AT** (Dengue NS-1)
+- `NS-1 Antigen` — Text (Positive/Negative)
+
+**VDRL**
+- `VDRL` — Text (Reactive/Non-reactive)
+
+**UrineHCG**
+- `HCG` — Text (Positive/Negative)
+
+**B-HCG**
+- `Serum Beta-HCG` — Number (cutoff: 5.42)
+
+**TriT**
+- `Triglyceride` (inferred) — Number
+
+---
+
+## 3. RELATIONSHIPS
+
+All test tables → Patients via PatientID (1-many, no cascade detected).  
+Patients → Doctors via Referred By (many-1).
+
+```
+Doctors (1) ──< Patients (1) ──< [all test tables]
+```
+
+| FK | Parent | Child | Cardinality |
+|----|--------|-------|-------------|
+| Patients.Referred By | Doctors.ID | — | many→1 |
+| [TestTable].PatientID | Patients.PatientID | — | many→1 |
+
+**Cascade rules:** None detected (Access default = no cascade).  
+**Note:** `FBSPPBS.ReportID = Patients.PatientID` — apparent schema bug (joins ReportID to PatientID).
+
+---
+
+## 4. QUERIES
+
+| Query Name | Purpose |
+|-----------|---------|
+| FBST (FBSQ) | FBS readings for report |
+| FBSPPBSQ | FBS+PPBS for report |
+| FBSSGPTQ | FBS+SGPT for report |
+| FBSCQ | FBS+Cholesterol for report |
+| RBS - Readings | Random Blood Sugar |
+| PPBSQ | PPBS report |
+| OGTTT | OGTT report |
+| HBA1CT | HbA1c report |
+| BSS1HQ/BSS2HQ/BSS1H2Q | Blood Sugar series reports |
+| LPT | Lipid Profile report |
+| TCT | Cholesterol report |
+| FBCQ | Full Blood Count report |
+| WBCDCPLTT | WBC Differential report |
+| BGWHQ/BGT | Blood Group report |
+| CRPQ | CRP report |
+| SST/SGOTTQ/SGPTQ | Liver enzyme reports |
+| CT/CTT/CHT/UCT/UCCRPT | Renal function reports |
+| UT | Urea report |
+| UFRT/UFRQ | Urine report |
+| ESRQ | ESR report |
+| VDRLQ | VDRL report |
+| UrineHCGQ | Urine HCG report |
+| DABQ | Dengue Antibody report |
+| DNS1AQ | Dengue NS-1 report |
+| SFAT | Semen Analysis report |
+| HBT | Haemoglobin report |
+| Patients Query | Patient search with LIKE filter |
+| Doctors | Doctor lookup (ordered by name DESC) |
+| RFReport | Referred By report |
+| SAFQ | (likely Serum AF / another combo) |
+| UFRV | UFRT dropdown values |
+
+**Key SQL patterns (all follow same template):**
+```sql
+SELECT [TABLE].[ReportID], [TABLE].[PatientID], [TABLE].[Test Date],
+       [TABLE].[field1...], [Patients].[Patient Prefix], [Patients].[Patient Name]
+FROM Patients INNER JOIN [TABLE] ON [Patients].[PatientID] = [TABLE].[PatientID];
+```
+
+**Patient search query:**
+```sql
+WHERE (((Patients.[Patient Name]) Like "*" & [Forms]![Patients]![txtSearch] & "*"))
+```
+
+---
+
+## 5. FORMS & UI LOGIC
+
+### Forms List
+| Form | Bound Table/Query | Purpose |
+|------|------------------|---------|
+| Patients | Patients | Master list + navigation hub |
+| Doctors | Doctors | Doctor management |
+| Fasting Blood Sugar - Readings | FBST | FBS entry |
+| Random Blood Sugar - Readings | RBST | RBS entry |
+| FBSPPBS | FBSPPBS | FBS+PPBS entry |
+| FBSTT | FBSTT | FBS+Triglyceride |
+| FBSCT | FBSCT | FBS+Cholesterol |
+| FBSSGPTT | FBSSGPTT | FBS+SGPT |
+| PPBST | PPBST | PPBS entry |
+| OGTTT | OGTTT | OGTT entry |
+| HBA1CT | HBA1CT | HbA1c entry |
+| BSS1HT/BSS2HT/BSS1H2T | BSS* | Blood sugar series |
+| LPT | LPT | Lipid profile |
+| TCT | TCT | Cholesterol |
+| FBCT | FBCT | Full Blood Count |
+| WBCDCPLTT | WBCDCPLTT | WBC Differential |
+| HBT | HBT | Haemoglobin |
+| ESRT | ESRT | ESR |
+| BGroup | BGT | Blood Group |
+| BGWHT | BGWHT | Blood Group+Anthro |
+| CRPT | CRPT | CRP |
+| SST | SST | SGOT+SGPT |
+| SGOTT/SGPTT | SGOTT/SGPTT | Individual liver enzymes |
+| CSGPTT | CSGPTT | Creatinine+SGPT |
+| CT/CTT/CHT | CT/CTT/CHT | Creatinine combos |
+| UCT/UCCRPT | UCT/UCCRPT | Renal function |
+| UT | UT | Urea |
+| RFT | RFT | Rheumatoid Factor |
+| UFRT | UFRT | Urine Full Report |
+| SFAT | SFAT | Semen Analysis |
+| DABT | DABT | Dengue Antibody |
+| DNS1AT | DNS1AT | Dengue NS-1 |
+| VDRL | VDRL | VDRL |
+| UrineHCG | UrineHCG | Urine HCG |
+| RBS F | RBST | Random BS form |
+| TriQ | TriT | Triglyceride |
+| About | About | Software info |
+
+### UI Controls (detected)
+- `txtSearch` — text box on Patients form for name search
+- `Check48` — checkbox (controls "Printed on: [Now()]" footer toggle)
+- Combo boxes: Patient Prefix (8 values), Gender (Male/Female), Referred By (→ Doctors)
+- UFRT fields: likely comboboxes bound to UFRV table
+
+### Key Workflows
+1. **New Patient:** Open Patients form → enter details → Save
+2. **New Test:** From Patients form, click test button → opens test form filtered by `[PatientID]=[Patient ID]`
+3. **Print Report:** `Command18` button → `OpenReport` macro → previews report
+4. **Delete:** `Command17` → checks `Not [Form].[NewRecord]` → `DeleteRecord`
+5. **Navigate:** `previous`/`next` buttons → `GoToRecord`
+6. **Search Patients:** `txtSearch` → live filter via LIKE query
+
+---
+
+## 6. BUSINESS LOGIC
+
+### Calculated Fields (in reports)
+
+**eGFR** (Cockroft-Gault, gender-adjusted):
+```
+=Round(IIf([Gender]="Male",
+  186.3*(([Serum Creatinine])^-1.154)*(([Age])^-0.203),
+  186.3*(([Serum Creatinine])^-1.154)*(([Age])^-0.203)*0.742),1)
+```
+
+**Reference range flags** (arrow indicators — H/L flags):
+```
+SGPT: >40 = High, <12 = Low
+SGOT: >37 = High, <5 = Low
+Blood Urea: >43 = High, <13 = Low
+Serum Creatinine: >1.0 = High, <0.6 = Low (male: 0.7-1.3, female: 0.6-1.0)
+CRP: >6 = High
+Triglyceride: >150 = High
+FBS: >110 = High, <60 = Low
+Haemoglobin: >15 = High, <11 = Low
+B-HCG: >5.42 = Positive (female reference normal)
+HDL: <50 (female) or <40 (male) = Low
+```
+
+**Test Existence Check** (checkbox indicators on Patients form — `Check48` pattern):
+```
+=IIf(DCount("[PatientID]","[TABLE]","[PatientID]=[Patient ID]")>0,True,False)
+```
+Checked for: BGT, BGWHT, BSS1HT, BSS2HT, CHT, CRPT, FBST, FBSCT, HBA1CT, LPT, SST, TCT, UCT + others
+
+**Printed timestamp toggle:**
+```
+=IIf([Forms]![Patients]![Check48],"Printed on: " & Now()," ")
+```
+
+**Creatinine reference range (gender-aware display):**
+```
+=IIf([Gender]="Male","( 0.7 - 1.3 mg/dl )","( 0.6 - 1.0 mg/dl )")
+```
+
+### Macro Logic
+- `OnError` → `GoToControl` (error handling on all forms)
+- `SaveRecord` → check `[MacroError]<>0` → `MessageBox` on failure
+- `DeleteRecord` → guarded by `Not [Form].[NewRecord]`
+- All test form buttons on Patients: `OpenForm` with `WhereCondition="[PatientID]=" & [Patient ID]`
+
+---
+
+## 7. NORMALIZATION ISSUES
+
+| Issue | Detail |
+|-------|--------|
+| **Extreme table proliferation** | ~40 test tables, each nearly identical (ReportID, PatientID, Test Date + 1-5 fields). Should be ~3 tables: tests, test_types, test_results |
+| **Spelling errors in column names** | `Cholrestrol`, `Protien`, `Apperance`, `Plateletes`, `Sluggishly` — baked into schema |
+| **FBSPPBS join bug** | `FBSPPBS.PatientID = Patients.PatientID` but query uses `FBSPPBS.ReportID = Patients.PatientID` |
+| **Redundant combo tables** | FBSSGPTT, CSGPTT, CTT, CHT, UCCRPT, FBSPPBS, FBSCT, FBSTT — all are denormalized combos duplicating fields from single-test tables |
+| **eGFR calculated at report level** | Not stored; recalculated each time. Should be stored or computed server-side |
+| **No audit trail** | No created_at/updated_at, no user tracking |
+| **About table** | Unknown schema — likely single-row metadata |
+| **UFRV lookup** | Good pattern but only applied to UFRT; other categorical fields (Blood Group, Rhesus, DNS1AT result, VDRL result) are free-text |
+
+---
+
+## 8. EXPORT — CLEAN SQL SCHEMA (PostgreSQL)
+
+```sql
+-- Core tables
+CREATE TABLE doctors (
+    id SERIAL PRIMARY KEY,
+    doctor_name VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE patients (
+    patient_id SERIAL PRIMARY KEY,
+    prefix VARCHAR(20) CHECK (prefix IN ('Mr.','Miss.','Mrs.','Master.','Baby.','Dr.','Hon.','Rev.')),
+    patient_name VARCHAR(150) NOT NULL,
+    age INTEGER,
+    gender VARCHAR(10) CHECK (gender IN ('Male','Female')),
+    phone_number VARCHAR(20),
+    referred_by INTEGER REFERENCES doctors(id),
+    blood_type_antigen VARCHAR(20),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Normalized test architecture
+CREATE TABLE test_types (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(20) UNIQUE NOT NULL,  -- e.g. 'FBS', 'HBA1C', 'LPT'
+    name VARCHAR(100) NOT NULL,
+    description TEXT
+);
+
+CREATE TABLE test_panels (
+    id SERIAL PRIMARY KEY,
+    patient_id INTEGER NOT NULL REFERENCES patients(patient_id),
+    test_type_id INTEGER NOT NULL REFERENCES test_types(id),
+    test_date DATE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE test_results (
+    id SERIAL PRIMARY KEY,
+    panel_id INTEGER NOT NULL REFERENCES test_panels(id),
+    parameter_name VARCHAR(100) NOT NULL,
+    value_numeric NUMERIC(10,4),
+    value_text VARCHAR(100),
+    unit VARCHAR(30),
+    ref_range_low NUMERIC(10,4),
+    ref_range_high NUMERIC(10,4),
+    flag CHAR(1)  -- H, L, N
+);
+
+-- Lookup for UFRT dropdowns
+CREATE TABLE urine_report_values (
+    id SERIAL PRIMARY KEY,
+    value VARCHAR(100) NOT NULL
+);
+
+-- Semen Analysis (specialized - many categorical fields)
+CREATE TABLE semen_analysis (
+    id SERIAL PRIMARY KEY,
+    patient_id INTEGER NOT NULL REFERENCES patients(patient_id),
+    test_date DATE NOT NULL,
+    appearance VARCHAR(50),
+    liquefaction_time VARCHAR(50),
+    viscosity VARCHAR(50),
+    volume NUMERIC(6,2),
+    ph NUMERIC(4,2),
+    concentration NUMERIC(10,2),
+    activity VARCHAR(50),
+    sluggishly NUMERIC(6,2),
+    immotility NUMERIC(6,2),
+    pus_cells VARCHAR(50),
+    red_cells VARCHAR(50)
+);
+```
+
+---
+
+## 9. SUGGESTED API STRUCTURE
+
+```
+GET    /api/patients                  # list + search (?q=name)
+POST   /api/patients                  # create
+GET    /api/patients/:id              # detail + all test summary
+PUT    /api/patients/:id              # update
+DELETE /api/patients/:id
+
+GET    /api/doctors                   # list
+POST   /api/doctors
+PUT    /api/doctors/:id
+
+GET    /api/test-types                # all test codes
+GET    /api/patients/:id/tests        # all tests for patient
+POST   /api/patients/:id/tests        # new test panel
+GET    /api/tests/:panelId            # panel + results
+PUT    /api/tests/:panelId            # update
+DELETE /api/tests/:panelId
+
+GET    /api/tests/:panelId/report     # generate report (PDF)
+GET    /api/patients/:id/report       # all tests summary report
+
+GET    /api/lookup/urine-values       # UFRV dropdown
+```
+
+---
+
+## 10. BACKEND MODELS (JSON)
+
+```json
+{
+  "Patient": {
+    "patient_id": "int (PK)",
+    "prefix": "enum: Mr.|Miss.|Mrs.|Master.|Baby.|Dr.|Hon.|Rev.",
+    "patient_name": "string (required)",
+    "age": "int",
+    "gender": "enum: Male|Female",
+    "phone_number": "string",
+    "referred_by": "int FK→Doctor",
+    "blood_type_antigen": "string"
+  },
+  "Doctor": {
+    "id": "int (PK)",
+    "doctor_name": "string (required)"
+  },
+  "TestPanel": {
+    "id": "int (PK)",
+    "patient_id": "int FK→Patient",
+    "test_type_code": "string (e.g. FBS, LPT, FBCT)",
+    "test_date": "date",
+    "results": "TestResult[]"
+  },
+  "TestResult": {
+    "id": "int (PK)",
+    "panel_id": "int FK→TestPanel",
+    "parameter_name": "string",
+    "value_numeric": "decimal|null",
+    "value_text": "string|null",
+    "unit": "string",
+    "ref_range_low": "decimal|null",
+    "ref_range_high": "decimal|null",
+    "flag": "enum: H|L|N|null"
+  }
+}
+```
+
+### Test Type Codes to Seed
+`FBS, PPBS, RBST, FBSPPBS, FBSTT, FBSCT, FBSSGPTT, OGTT, HBA1C, BSS1H, BSS2H, BSS1H2, LPT, TCT, FBC, WBCDCPL, HB, ESR, BGT, BGWH, CRP, SST, SGOT, SGPT, CSGPT, CT, CTT, CHT, UCT, UCCRP, UT, RFT, UFR, SFAT, DABT, DNS1A, VDRL, URINEHCG, BHCG, TRI`
+
+---
+
+## 11. CRITICAL NOTES
+
+| # | Issue | Severity |
+|---|-------|----------|
+| 1 | **No login/auth** — Access DB has no user authentication layer | 🔴 Critical |
+| 2 | **No encryption** — 27MB flat file with full patient PHI (Protected Health Information) | 🔴 Critical |
+| 3 | **FBSPPBS join bug** — `ReportID` joined to `PatientID` — data corruption risk on migration | 🔴 Critical |
+| 4 | **Typos in column names** — `Cholrestrol`, `Protien`, `Apperance`, `Plateletes` — must normalize during migration | 🟡 High |
+| 5 | **eGFR not stored** — calculated on-the-fly in reports; historical values not preserved | 🟡 High |
+| 6 | **40+ tables = 40+ migration targets** — high ETL complexity; consolidate first | 🟡 High |
+| 7 | **No foreign key enforcement** — Access UI relationships exist but no DB-level cascade/constraint enforcement | 🟡 High |
+| 8 | **Spaces in column names** — `[S G P T (ALT)]`, `[1 hr After Breakfast]` — requires quoting everywhere; rename on migration | 🟡 High |
+| 9 | **No timestamps** — no created/modified dates on any test record | 🟠 Medium |
+| 10 | **UFRV as only lookup table** — all other categoricals (Blood Group, VDRL result, DNS1A result) are free-text; add validation | 🟠 Medium |
+| 11 | **Duplicate test data across combo tables** — BSS, FBSXX, CXX tables cause reporting inconsistency | 🟠 Medium |
+| 12 | **`~TMPCLPMacro`** — clipboard macro artifact; clean up on migration | 🟢 Low |
+| 13 | **`About` table** — unknown schema; capture before migration | 🟢 Low |
