@@ -125,7 +125,7 @@ Apollo.Utils = {
       this.toast('No phone number provided', 'error');
       return;
     }
-    const message = `Dear ${prefix||''} ${name}, Hello perya aala nee nan ine sirikka matan`;
+    const message = `helllo  ${prefix||''} ${name}, nan sirikka matan jiffna`;
     const userId = "104230";
     const apiKey = "dm25u04bfhnyde8tu";
     const senderId = "Rifnas";
