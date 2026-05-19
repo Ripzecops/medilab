@@ -125,10 +125,10 @@ Apollo.Utils = {
       this.toast('No phone number provided', 'error');
       return;
     }
-    const message = `Dear ${prefix||''} ${name}, Your Blood / Urine report is ready. Please collect from APPOLO MEDI LAB, Eravur. Time 6.00 AM to 10.00 AM, 4.30 PM to 7.30 PM`;
+    const message = `Dear ${prefix||''} ${name}, Hello perya aala nee nan ine sirikka matan`;
     const userId = "104230";
     const apiKey = "dm25u04bfhnyde8tu";
-    const senderId = "Appolo M L";
+    const senderId = "Rifnas";
     
     // Using a proxy or direct fetch if CORS allows, usually these APIs need a backend or CORS proxy
     // For this local app, we'll try direct fetch first.
